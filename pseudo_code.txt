@@ -1,0 +1,38 @@
+dac: SIGALARM redéclenché
+midi in: SIGUSR1
+
+
+midi input:
+10: on lit le midi sur un /dev/snd/midiXXX
+dès qu'il a un octet
+  si flag BUFFER_READY à 0, goto 10
+
+  balance l'octet dans le shm
+  set flag BUFFER_READY à 0
+  balance le signal SIGUSR1 au player
+goto 10
+
+
+
+le player:
+
+midi USR1 signal handler:
+lit l'octet sur le shm
+stacker dans le midi_buffer:
+set le flag BUFFER_READY à 1
+ret
+
+main:
+si event midi dans le midi_buffer:
+  parser 1 event midi (eventuellement plusieurs octets)
+  traiter event midi
+
+générer un sample (mix, filter, bla)
+
+
+
+
+
+
+
+
