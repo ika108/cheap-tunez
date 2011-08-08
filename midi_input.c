@@ -93,6 +93,8 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Usage: %s <device>\n", argv[0]);
 		end();
 	}
+	
+	// Opening a file descriptor to the midi raw device
 	midi_input_device = argv[1];
 	midi_input_fd = open(midi_input_device, O_RDONLY);
 	if(midi_input_fd == -1) {
@@ -103,7 +105,7 @@ int main(int argc, char **argv) {
 	// Hookup the signal handler
 	signal_action.sa_flags = SA_NODEFER;
 	sigemptyset(&signal_action.sa_mask);
-	signal_action.sa_sigaction = sighandler;
+	signal_action.sa_handler = sighandler;
 	if(sigaction(SIGINT, &signal_action, NULL) == -1) {
 		fprintf(stderr, "Cannot set sighandler\n");
                 end();
