@@ -4,6 +4,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -13,12 +14,17 @@
 // SHM Token ID (should be the same on the client code)
 #define SHM_KEY 0xDEADBEEF
 
-
 volatile midi_byte_buffer byte_buffer;
-midi_byte *shm_segment;
+midi_byte *shared_segment;
+int must_exit = 0;
+int shmid = 0;
 
+void sighandler(int signum);
 void stack_value(midi_byte value);
 midi_byte unstack_value(void);
+void buffer_init(void);
+midi_byte *create_ssegment(void);
+void end(void);
 
 void sighandler(int signum) {
 	printf("signal %i received\n", signum);
@@ -32,7 +38,7 @@ void sighandler(int signum) {
 			break;
 		case SIGUSR1: // UART INTERRUPT
 			printf("Stacking value...\n");
-			stack_value(*shm_segment);
+			stack_value(*shared_segment);
 			break;
 	}
 }
@@ -80,7 +86,7 @@ void buffer_init(void){
 }
 
 midi_byte *create_ssegment(void) {
-	char *ssegment;
+	midi_byte *ssegment;
 	shmid = shmget(SHM_KEY, sizeof(char), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
 		shmid = shmget(SHM_KEY, sizeof(char), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
@@ -107,6 +113,7 @@ void end(void) {
 
 
 int main(void) {
+	struct sigaction signal_action;
 	buffer_init();
 	// Hookup the signal handler
 	signal_action.sa_flags = SA_NODEFER;

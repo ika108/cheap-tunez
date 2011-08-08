@@ -13,14 +13,14 @@
 #include <errno.h>
 
 /*  TODO : 
-	Implement a correct error handler...
-	Sven : Read "select" man pages...
-	Implement a way to gather the main synth process pid.
-*/
+    Implement a correct error handler...
+Sven : Read "select" man pages...
+Implement a way to gather the main synth process pid.
+ */
 
-#define SPID 1234
+#define SPID 10592
 
-// SHM Token ID (should be the same on the client code)
+// SHM Token ID (should be the same on the server code)
 #define SHM_KEY 0xDEADBEEF
 
 int must_exit = 0; // Should we exit the code after catching a SIGINT ?
@@ -69,13 +69,13 @@ void end(void) {
 // Create a shared segment and return its pointer.
 char *create_ssegment(void) {
 	char *ssegment;
-	shmid = shmget(SHM_KEY, sizeof(char), 0666); // First, try to get the shmid of an existing shm.
+	shmid = shmget(SHM_KEY, sizeof(char), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
-		shmid = shmget(SHM_KEY, sizeof(char), IPC_CREAT | 0666); // So let's create it. It's possible we can optimize the acl
+		shmid = shmget(SHM_KEY, sizeof(char), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
 		if(shmid == -1) { // Can't create a shm. bouh!
 			return NULL;
 		}
-		ssegment = shmat(shmid,NULL,0 );
+		ssegment = shmat(shmid, NULL, 0);
 	}
 	return ssegment;
 }
@@ -89,11 +89,12 @@ int main(int argc, char **argv) {
 	char *shared_segment;
 	struct sigaction signal_action; // Toothpast :p
 
+	// Parsing argv/argc
 	if(argc != 2) {
 		fprintf(stderr, "Usage: %s <device>\n", argv[0]);
 		end();
 	}
-	
+
 	// Opening a file descriptor to the midi raw device
 	midi_input_device = argv[1];
 	midi_input_fd = open(midi_input_device, O_RDONLY);
@@ -108,9 +109,9 @@ int main(int argc, char **argv) {
 	signal_action.sa_handler = sighandler;
 	if(sigaction(SIGINT, &signal_action, NULL) == -1) {
 		fprintf(stderr, "Cannot set sighandler\n");
-                end();
+		end();
 	}
-	
+
 	// Connecting the shared segment
 	shared_segment = create_ssegment();
 	if(shared_segment == NULL) {
@@ -152,8 +153,10 @@ int main(int argc, char **argv) {
 			// and t_pid... I don't know. And it seems to be plateform dependent.
 			serverpid = SPID;
 		}
+		if(shared_segment != 0x0){
 		printf("read %i byte : 0x%x\n", nbread, atoi(shared_segment));
-		kill(serverpid, SIGUSR1);
+			kill(serverpid, SIGUSR1);
+		}
 	}
 	end();
 	return 0;
