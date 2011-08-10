@@ -11,11 +11,15 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <errno.h>
+#include "cheap_utils.h"
+
+//The segfaults seem to be related to the shm which is uninitialized. cf valgrind
+
 
 /*  TODO : 
     Implement a correct error handler...
 Sven : Read "select" man pages...
-Implement a way to gather the main synth process pid.
+[DONE] Implement a way to gather the main synth process pid.
  */
 
 #define SPID 10592
@@ -54,7 +58,7 @@ void end(void) {
 	if(midi_input_fd) {
 		close(midi_input_fd);
 	}
-	// If the shm is still mounted, the discard it.
+	// If the shm is still attached, then discard it.
 	if(shmid) {
 		struct shmid_ds ds; // Just for the sake of it.
 		ret = shmctl(shmid, IPC_RMID, &ds); // shm identifier, command, data_store
@@ -77,6 +81,7 @@ char *create_ssegment(void) {
 		}
 		ssegment = shmat(shmid, NULL, 0);
 	}
+	printf("ret:%p", ssegment);
 	return ssegment;
 }
 
@@ -86,8 +91,8 @@ int main(int argc, char **argv) {
 	fd_set rfds;
 	struct timeval tv;
 	char *midi_input_device;
-	char *shared_segment;
-	struct sigaction signal_action; // Toothpast :p
+	char *shared_segment=NULL;
+	struct sigaction signal_action; // Toothpaste :p
 
 	// Parsing argv/argc
 	if(argc != 2) {
@@ -148,15 +153,19 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "Cannot read from midi device: read 0 bytes\n");
 			break;
 		}
+		else if(nbread!=sizeof(char)) {
+			fprintf(stderr, "read error. Wanted %zu bytes, got %i\n", sizeof(char), nbread);
+			break;
+		}
 		if(serverpid == 0) {
-			// TODO ; Must find a way to gather server pid... Via the shared segment perhaps but its data size is char.
-			// and t_pid... I don't know. And it seems to be plateform dependent.
-			serverpid = SPID;
+			serverpid=find_pid_by_name("midi_input");
+			if(serverpid == 0) {
+				fprintf(stderr, "Cannot find the midi server PID\n");
+				break;
+			}
 		}
-		if(shared_segment != 0x0){
-		printf("read %i byte : 0x%x\n", nbread, atoi(shared_segment));
-			kill(serverpid, SIGUSR1);
-		}
+		printf("read %i byte : 0x%x\n", nbread, (unsigned char)shared_segment[0]); // no atoi!! atoi s'attend a avoir une chaine null-terminée
+		kill(serverpid, SIGUSR1);
 	}
 	end();
 	return 0;

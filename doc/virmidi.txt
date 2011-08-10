@@ -1,0 +1,2 @@
+sudo modprobe snd-virmidi
+
