@@ -2,6 +2,7 @@ dac: SIGALARM redéclenché
 midi in: SIGUSR1
 
 
+
 midi input:
 10: on lit le midi sur un /dev/snd/midiXXX
 dès qu'il a un octet
