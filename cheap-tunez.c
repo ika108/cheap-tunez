@@ -9,22 +9,14 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include "midi.h"
-
-// SHM Token ID (should be the same on the client code)
-#define SHM_KEY 0xDEADBEEF
+#include "cheap_midi.h"
+#include "cheap_shm.h"
+#include "cheap-tunez.h"
 
 volatile midi_byte_buffer byte_buffer;
-midi_byte *shared_segment;
+shm_struct *shared_segment;
 int must_exit = 0;
 int shmid = 0;
-
-void sighandler(int signum);
-void stack_value(midi_byte value);
-midi_byte unstack_value(void);
-void buffer_init(void);
-midi_byte *create_ssegment(void);
-void end(void);
 
 void sighandler(int signum) {
 	printf("signal %i received\n", signum);
@@ -38,7 +30,8 @@ void sighandler(int signum) {
 			break;
 		case SIGUSR1: // UART INTERRUPT
 			printf("Stacking value...\n");
-			stack_value(*shared_segment);
+			stack_value(shared_segment->data);
+			shared_segment->buffer_ready = 1;
 			break;
 	}
 }
@@ -85,11 +78,11 @@ void buffer_init(void){
 	return;
 }
 
-midi_byte *create_ssegment(void) {
-	midi_byte *ssegment;
-	shmid = shmget(SHM_KEY, sizeof(char), 0600); // First, try to get the shmid of an existing shm.
+shm_struct *create_ssegment(void) {
+	shm_struct *ssegment;
+	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
-		shmid = shmget(SHM_KEY, sizeof(char), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
+		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
 		if(shmid == -1) { // Can't create a shm. bouh!
 			return NULL;
 		}
@@ -134,6 +127,8 @@ int main(void) {
 		fprintf(stderr, "Cannot create shared segment: %i (%s)", errno, strerror(errno));
 		end();
 	}
+
+	shared_segment->buffer_ready = 1;
 
 	while(must_exit == 0){
 		if(byte_buffer.free == 0){

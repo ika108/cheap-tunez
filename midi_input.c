@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -12,9 +13,11 @@
 #include <sys/time.h>
 #include <errno.h>
 #include "cheap_utils.h"
+#include "cheap_midi.h"
+#include "cheap_shm.h"
+#include "midi_input.h"
 
-//The segfaults seem to be related to the shm which is uninitialized. cf valgrind
-
+// The segfaults seem to be related to the shm which is uninitialized. cf valgrind
 
 /*  TODO : 
     Implement a correct error handler...
@@ -22,20 +25,10 @@ Sven : Read "select" man pages...
 [DONE] Implement a way to gather the main synth process pid.
  */
 
-#define SPID 10592
-
-// SHM Token ID (should be the same on the server code)
-#define SHM_KEY 0xDEADBEEF
-
 int must_exit = 0; // Should we exit the code after catching a SIGINT ?
 int midi_input_fd = 0; // Filedescriptor connected to our raw midi device
 int shmid = 0; // Variable holding a shm identifier
 pid_t serverpid = 0; // PID of the server process connected to the shm segment
-
-
-static void sighandler(int signum);
-void end(void);
-char *create_ssegment(void);
 
 // This "callback" function is a hook for the linux kernel to pass a signal to our program.
 static void sighandler(int signum) {
@@ -71,17 +64,16 @@ void end(void) {
 }
 
 // Create a shared segment and return its pointer.
-char *create_ssegment(void) {
-	char *ssegment;
-	shmid = shmget(SHM_KEY, sizeof(char), 0600); // First, try to get the shmid of an existing shm.
+shm_struct *create_ssegment(void) {
+	shm_struct *ssegment;
+	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
-		shmid = shmget(SHM_KEY, sizeof(char), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
+		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
 		if(shmid == -1) { // Can't create a shm. bouh!
 			return NULL;
 		}
 		ssegment = shmat(shmid, NULL, 0);
 	}
-	printf("ret:%p", ssegment);
 	return ssegment;
 }
 
@@ -89,9 +81,10 @@ int main(int argc, char **argv) {
 	int nbread;
 	int ret;
 	fd_set rfds;
+	midi_byte buf;
 	struct timeval tv;
 	char *midi_input_device;
-	char *shared_segment=NULL;
+	shm_struct *shared_segment = NULL;
 	struct sigaction signal_action; // Toothpaste :p
 
 	// Parsing argv/argc
@@ -144,7 +137,7 @@ int main(int argc, char **argv) {
 			continue; // timeout
 		}
 
-		nbread = read(midi_input_fd, shared_segment, sizeof(char));
+		nbread = read(midi_input_fd, &buf, sizeof(midi_byte));
 		if(nbread == -1) {
 			fprintf(stderr, "Cannot read from midi device: %i (%s)\n", errno, strerror(errno));
 			break;
@@ -153,19 +146,26 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "Cannot read from midi device: read 0 bytes\n");
 			break;
 		}
-		else if(nbread!=sizeof(char)) {
-			fprintf(stderr, "read error. Wanted %zu bytes, got %i\n", sizeof(char), nbread);
+		else if(nbread != sizeof(midi_byte)) {
+			fprintf(stderr, "read error. Wanted %zu bytes, got %i\n", sizeof(midi_byte), nbread);
 			break;
 		}
 		if(serverpid == 0) {
-			serverpid=find_pid_by_name("midi_input");
+			serverpid = find_pid_by_name("cheap-tunez");
 			if(serverpid == 0) {
 				fprintf(stderr, "Cannot find the midi server PID\n");
 				break;
 			}
 		}
-		printf("read %i byte : 0x%x\n", nbread, (unsigned char)shared_segment[0]); // no atoi!! atoi s'attend a avoir une chaine null-terminée
-		kill(serverpid, SIGUSR1);
+		printf("read %i byte : 0x%x\n", nbread, buf.undecoded);
+		if(shared_segment->buffer_ready == 0) {
+			fprintf(stderr, "Buffer not ready, dropping value\n"); 
+			// Maybe we can found a cleaner way to do this. Keeping it warm until next data arrives
+			continue;
+		}
+		// (shared_segment->data).undecoded = *buf;
+		// shared_segment->buffer_ready = 0;
+		// kill(serverpid, SIGUSR1);
 	}
 	end();
 	return 0;
