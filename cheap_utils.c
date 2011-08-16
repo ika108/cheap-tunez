@@ -23,32 +23,29 @@ int find_pid_by_name(const char *name) {
 		snprintf(fname, sizeof(fname), "/proc/%s/cmdline", de->d_name); // Store next cmdline content into fname
 		fd = open(fname, O_RDONLY);
 		if(fd == -1) continue; // If we fail to open fname, (and we will) just skip the entry.
-		nbread = read(fd, buf, sizeof(buf));
-		if(nbread == -1) {
+		nbread = read(fd, buf, sizeof(buf)); // Try to read as much chars as possible
+		if(nbread == -1) { // Couldn't read anything. Wierd file ? 
 			close(fd);
-			continue;
+			continue; // Skip the entry
 		}
 		if(strstr(buf, name)) {
 			/* now, check that the executable name ends with the name we search. 
 			   This will prevent grabbing the PID of vi, fro instance, if we have a "vi midi_input.c" */
-
-			snprintf(fname, sizeof(fname), "/proc/%s/exe", de->d_name);
-			nbread = readlink(fname, buf, sizeof(buf));
-			if(nbread == -1) {
+			snprintf(fname, sizeof(fname), "/proc/%s/exe", de->d_name); // Store the exec proc link into fname
+			nbread = readlink(fname, buf, sizeof(buf)); // Try to get the full path of the exec
+			if(nbread == -1) { // Couldn't resolve the link
 				close(fd);
-				continue;
+				continue; // Skip the entry
 			}
-			buf[nbread] = '\0';
-			if(strlen(buf)>strlen(name)) {
-				if(strcmp(buf + strlen(buf) - strlen(name), name) == 0) {
-					pid = atoi(de->d_name);
+			buf[nbread] = '\0'; // Add a carriage return
+			if(strlen(buf) > strlen(name)) { 
+				if(strcmp(buf + strlen(buf) - strlen(name), name) == 0) { // Last check to verify if the exec file correspond to the queried name
+					pid = atoi(de->d_name); // Store pid
 					break;
 				}
-
 			}
 		}
 	}
-
 	if(fd) close(fd);
 	if(od) closedir(od);
 	return pid;
