@@ -29,6 +29,7 @@ int must_exit = 0; // Should we exit the code after catching a SIGINT ?
 int midi_input_fd = 0; // Filedescriptor connected to our raw midi device
 int shmid = 0; // Variable holding a shm identifier
 pid_t serverpid = 0; // PID of the server process connected to the shm segment
+shm_struct *shared_segment;
 
 // This "callback" function is a hook for the linux kernel to pass a signal to our program.
 static void sighandler(int signum) {
@@ -64,17 +65,16 @@ void end(void) {
 }
 
 // Create a shared segment and return its pointer.
-shm_struct *create_ssegment(void) {
-	shm_struct *ssegment;
+void create_ssegment(void) {
 	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
 		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
 		if(shmid == -1) { // Can't create a shm. bouh!
-			return NULL;
+			return;
 		}
-		ssegment = shmat(shmid, NULL, 0);
+		shared_segment = shmat(shmid, NULL, 0);
 	}
-	return ssegment;
+	return;
 }
 
 int main(int argc, char **argv) {
@@ -84,7 +84,6 @@ int main(int argc, char **argv) {
 	midi_byte buf;
 	struct timeval tv;
 	char *midi_input_device;
-	shm_struct *shared_segment = NULL;
 	struct sigaction signal_action; // Toothpaste :p
 
 	// Parsing argv/argc
@@ -111,11 +110,11 @@ int main(int argc, char **argv) {
 	}
 
 	// Connecting the shared segment
-	shared_segment = create_ssegment();
-	if(shared_segment == NULL) {
+	create_ssegment();
+	/* if(shared_segment == NULL) {
 		fprintf(stderr, "Cannot create shared segment: %i (%s)", errno, strerror(errno));
 		end();
-	}
+	}*/
 
 	while(must_exit == 0) {
 		// Configure select
@@ -158,14 +157,14 @@ int main(int argc, char **argv) {
 			}
 		}
 		printf("read %i byte : 0x%x\n", nbread, buf.undecoded);
-		if(shared_segment->buffer_ready == 0) {
+		/* if(shared_segment->buffer_ready == 0) {
 			fprintf(stderr, "Buffer not ready, dropping value\n"); 
 			// Maybe we can found a cleaner way to do this. Keeping it warm until next data arrives
 			continue;
-		}
-		// (shared_segment->data).undecoded = *buf;
-		// shared_segment->buffer_ready = 0;
-		// kill(serverpid, SIGUSR1);
+		} */
+		memcpy(&(shared_segment->data),&buf,sizeof(midi_byte));
+		shared_segment->buffer_ready = 0;
+		kill(serverpid, SIGUSR1);
 	}
 	end();
 	return 0;

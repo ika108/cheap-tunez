@@ -3,6 +3,6 @@
 
 static void sighandler(int signum);
 void end(void);
-shm_struct *create_ssegment(void);
+void create_ssegment(void);
 
 #endif

@@ -29,7 +29,7 @@ void sighandler(int signum) {
 			}
 			break;
 		case SIGUSR1: // UART INTERRUPT
-			printf("Stacking value...\n");
+			printf("Stacking value... 0x%x\n",shared_segment->data.undecoded);
 			stack_value(shared_segment->data);
 			shared_segment->buffer_ready = 1;
 			break;
@@ -38,6 +38,7 @@ void sighandler(int signum) {
 
 // Ring buffer stack function
 void stack_value(midi_byte value){
+	printf("Calling stack_value(0x%x)\n",value.undecoded);
 	if(byte_buffer.free != 0){
 		byte_buffer.data[byte_buffer.write_idx] = value;
 		if( byte_buffer.write_idx == ( MIDI_EVENTS_BUFFER_SIZE - 1 ) ) {
@@ -54,6 +55,7 @@ void stack_value(midi_byte value){
 
 // Ring buffer unstack function
 midi_byte unstack_value(void){
+	printf("Calling unstack_value()\n");
 	midi_byte value;
 	value.undecoded = 0x00;
 	if(byte_buffer.free != MIDI_EVENTS_BUFFER_SIZE){
@@ -72,23 +74,24 @@ midi_byte unstack_value(void){
 }
 
 void buffer_init(void){
+	printf("Calling buffer_init()\n");
 	byte_buffer.free = MIDI_EVENTS_BUFFER_SIZE - 1;
 	byte_buffer.read_idx = 0;
 	byte_buffer.write_idx = 0;
 	return;
 }
 
-shm_struct *create_ssegment(void) {
-	shm_struct *ssegment;
+void create_ssegment(void) {
+	printf("Calling create_ssegment()\n");
 	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
 		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
 		if(shmid == -1) { // Can't create a shm. bouh!
-			return NULL;
+			return;
 		}
-		ssegment = shmat(shmid, NULL, 0);
+		shared_segment = shmat(shmid, NULL, 0);
 	}
-	return ssegment;
+	return;
 }
 
 void end(void) {
@@ -122,11 +125,11 @@ int main(void) {
 	}
 
 	// Connecting the shared segment
-	shared_segment = create_ssegment();
-	if(shared_segment == NULL) {
+	create_ssegment();
+	/*if(shared_segment == NULL) {
 		fprintf(stderr, "Cannot create shared segment: %i (%s)", errno, strerror(errno));
 		end();
-	}
+	}*/
 
 	shared_segment->buffer_ready = 1;
 
