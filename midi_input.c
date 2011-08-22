@@ -29,7 +29,7 @@ int must_exit = 0; // Should we exit the code after catching a SIGINT ?
 int midi_input_fd = 0; // Filedescriptor connected to our raw midi device
 int shmid = 0; // Variable holding a shm identifier
 pid_t serverpid = 0; // PID of the server process connected to the shm segment
-shm_struct *shared_segment;
+shm_struct *shared_segment = NULL;
 
 // This "callback" function is a hook for the linux kernel to pass a signal to our program.
 static void sighandler(int signum) {
@@ -57,28 +57,11 @@ void end(void) {
 		struct shmid_ds ds; // Just for the sake of it.
 		ret = shmctl(shmid, IPC_RMID, &ds); // shm identifier, command, data_store
 		if(ret == -1) { // Something's gone wrong...
-			fprintf(stderr, "Cannot destroy shm key: %i (%s)", errno, strerror(errno));
+			fprintf(stderr, "Cannot destroy shm key: %i (%s)\n", errno, strerror(errno));
 		}
 	}
 	printf("Exiting...\n");
 	exit(0);
-}
-
-// Create a shared segment and return its pointer.
-void create_ssegment(void) {
-	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
-	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
-printf("re create shm\n");
-		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
-		if(shmid == -1) { // Can't create a shm. bouh!
-			return;
-		}
-	}
-	shared_segment = shmat(shmid, NULL, 0);
-	if (shared_segment==(void*)-1) {
-		fprintf(stderr, "Cannot attach the shm segment: %i (%s)\n", errno, strerror(errno));
-	}
-	return;
 }
 
 int main(int argc, char **argv) {
@@ -114,11 +97,11 @@ int main(int argc, char **argv) {
 	}
 
 	// Connecting the shared segment
-	create_ssegment();
-	/* if(shared_segment == NULL) {
-		fprintf(stderr, "Cannot create shared segment: %i (%s)", errno, strerror(errno));
+	shared_segment = create_ssegment();
+	if(shared_segment == NULL) {
+		fprintf(stderr, "Cannot create shared segment: %i (%s)\n", errno, strerror(errno));
 		end();
-	}*/
+	}
 
 	while(must_exit == 0) {
 		// Configure select
@@ -153,7 +136,8 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "read error. Wanted %zu bytes, got %i\n", sizeof(midi_byte), nbread);
 			break;
 		}
-		if(serverpid == 0) {
+
+		if (serverpid == 0) {
 			serverpid = find_pid_by_name("cheap-tunez");
 			if(serverpid == 0) {
 				fprintf(stderr, "Cannot find the midi server PID\n");
@@ -168,7 +152,8 @@ int main(int argc, char **argv) {
 		} */
 		memcpy(&(shared_segment->data),&buf,sizeof(midi_byte));
 		shared_segment->buffer_ready = 0;
-		kill(serverpid, SIGUSR1);
+		//kill(serverpid, SIGUSR1);
+		printf("KILL %i\n", serverpid);
 	}
 	end();
 	return 0;

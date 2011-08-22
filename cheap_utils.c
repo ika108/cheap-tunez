@@ -6,6 +6,9 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <sys/shm.h>
+#include "cheap_shm.h"
 #include "cheap_utils.h"
 
 int find_pid_by_name(const char *name) {
@@ -15,7 +18,7 @@ int find_pid_by_name(const char *name) {
 	char buf[256*2] = "\0";
 	struct dirent *de;
 	size_t nbread;
-	int pid = -1;
+	int pid = 0;
 	if(!od) return -1; // Couldn't open /proc
 	while ((de = readdir(od)) != NULL) { // Iteration over /proc content
 		/* This trick can work only because readdir iterate on an alphanumeric order. Making the pid numbers first.

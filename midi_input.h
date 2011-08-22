@@ -3,6 +3,5 @@
 
 static void sighandler(int signum);
 void end(void);
-void create_ssegment(void);
 
 #endif

@@ -14,7 +14,7 @@
 #include "cheap-tunez.h"
 
 volatile midi_byte_buffer byte_buffer;
-shm_struct *shared_segment;
+shm_struct *shared_segment = NULL;
 int must_exit = 0;
 int shmid = 0;
 
@@ -29,9 +29,11 @@ void sighandler(int signum) {
 			}
 			break;
 		case SIGUSR1: // UART INTERRUPT
-			printf("Stacking value... 0x%x\n",shared_segment->data.undecoded);
-			stack_value(shared_segment->data);
-			shared_segment->buffer_ready = 1;
+			if(shared_segment) {
+				printf("Stacking value... 0x%x\n",shared_segment->data.undecoded);
+				stack_value(shared_segment->data);
+				shared_segment->buffer_ready = 1;
+			}
 			break;
 	}
 }
@@ -81,19 +83,6 @@ void buffer_init(void){
 	return;
 }
 
-void create_ssegment(void) {
-	printf("Calling create_ssegment()\n");
-	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
-	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
-		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
-		if(shmid == -1) { // Can't create a shm. bouh!
-			return;
-		}
-		shared_segment = shmat(shmid, NULL, 0);
-	}
-	return;
-}
-
 void end(void) {
 	int ret;
 	if(shmid) {
@@ -125,11 +114,11 @@ int main(void) {
 	}
 
 	// Connecting the shared segment
-	create_ssegment();
-	/*if(shared_segment == NULL) {
-		fprintf(stderr, "Cannot create shared segment: %i (%s)", errno, strerror(errno));
+	shared_segment = create_ssegment();
+	if(shared_segment == NULL) {
+		fprintf(stderr, "Cannot create shared segment: %i (%s)\n", errno, strerror(errno));
 		end();
-	}*/
+	}
 
 	shared_segment->buffer_ready = 1;
 

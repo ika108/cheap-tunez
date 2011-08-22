@@ -15,7 +15,6 @@ void sighandler(int signum);
 void stack_value(midi_byte value);
 midi_byte unstack_value(void);
 void buffer_init(void);
-void create_ssegment(void);
 void end(void);
 
 #endif /* CHEAP_TUNEZ_H_ */
