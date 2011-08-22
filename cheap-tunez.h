@@ -1,7 +1,7 @@
 #ifndef CHEAP_TUNEZ_H_
 #define CHEAP_TUNEZ_H_
 
-#define MIDI_EVENTS_BUFFER_SIZE 128 // In bytes
+#define MIDI_EVENTS_BUFFER_SIZE 4 // In bytes
 #define MIDI_CHANNEL 0 // -> our synthesizer will answer statically to MIDI Channel 1
 
 typedef struct _midi_byte_buffer {

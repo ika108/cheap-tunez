@@ -9,7 +9,7 @@
 
 typedef struct _shm_struct {
         midi_byte data;
-        uint8_t buffer_ready;
+        volatile uint8_t buffer_ready;
 } shm_struct;
 
 void *create_ssegment(void);

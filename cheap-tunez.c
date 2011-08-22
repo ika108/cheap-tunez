@@ -19,7 +19,7 @@ int must_exit = 0;
 int shmid = 0;
 
 void sighandler(int signum) {
-	printf("signal %i received\n", signum);
+	//printf("signal %i received\n", signum);
 	switch(signum) {
 		case SIGINT: // Got Crtl+c
 			if(must_exit == 1){ // We are forcing it
@@ -125,9 +125,10 @@ int main(void) {
 	while(must_exit == 0){
 		if(byte_buffer.free == 0){
 			printf("Unstacking values...\n");
-			midi_byte value;
-			while( (value = unstack_value()).undecoded > 0x00 ){
-				printf("Value : 0x%x (%c)\n",value.undecoded, value.undecoded);
+			midi_byte mb;
+			while (byte_buffer.free < MIDI_EVENTS_BUFFER_SIZE) {
+				mb = unstack_value();
+				printf("Value : 0x%x (%c)\n",mb.undecoded, mb.undecoded);
 			}
 			printf("End of stack\n");
 		}

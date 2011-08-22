@@ -72,6 +72,7 @@ int main(int argc, char **argv) {
 	struct timeval tv;
 	char *midi_input_device;
 	struct sigaction signal_action; // Toothpaste :p
+	int nbtries;
 
 	// Parsing argv/argc
 	if(argc != 2) {
@@ -145,15 +146,24 @@ int main(int argc, char **argv) {
 			}
 		}
 		printf("read %i byte : 0x%x\n", nbread, buf.undecoded);
-		/* if(shared_segment->buffer_ready == 0) {
+		
+		for(nbtries=0; nbtries<16; nbtries++) {
+			if(shared_segment->buffer_ready == 0) {
+				usleep(50);
+			}
+			else {
+				break;
+			}
+		}
+		if(shared_segment->buffer_ready == 0) {
 			fprintf(stderr, "Buffer not ready, dropping value\n"); 
 			// Maybe we can found a cleaner way to do this. Keeping it warm until next data arrives
 			continue;
-		} */
+		}
 		memcpy(&(shared_segment->data),&buf,sizeof(midi_byte));
 		shared_segment->buffer_ready = 0;
-		//kill(serverpid, SIGUSR1);
-		printf("KILL %i\n", serverpid);
+		kill(serverpid, SIGUSR1);
+		//printf("KILL %i\n", serverpid);
 	}
 	end();
 	return 0;
