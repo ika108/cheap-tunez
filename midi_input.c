@@ -68,11 +68,15 @@ void end(void) {
 void create_ssegment(void) {
 	shmid = shmget(SHM_KEY, sizeof(shm_struct), 0600); // First, try to get the shmid of an existing shm.
 	if(shmid == -1 && errno == ENOENT) { // It seems there aren't any
+printf("re create shm\n");
 		shmid = shmget(SHM_KEY, sizeof(shm_struct), IPC_CREAT | 0600); // So let's create it. It's possible we can optimize the acl
 		if(shmid == -1) { // Can't create a shm. bouh!
 			return;
 		}
-		shared_segment = shmat(shmid, NULL, 0);
+	}
+	shared_segment = shmat(shmid, NULL, 0);
+	if (shared_segment==(void*)-1) {
+		fprintf(stderr, "Cannot attach the shm segment: %i (%s)\n", errno, strerror(errno));
 	}
 	return;
 }
