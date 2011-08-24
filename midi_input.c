@@ -148,22 +148,20 @@ int main(int argc, char **argv) {
 		printf("read %i byte : 0x%x\n", nbread, buf.undecoded);
 		
 		for(nbtries=0; nbtries<16; nbtries++) {
-			if(shared_segment->buffer_ready == 0) {
+			ret=pthread_mutex_trylock(&shared_segment->buffer_ready);
+			if(ret == EBUSY) {
 				usleep(50);
 			}
 			else {
-				break;
+				//mutex locked
+				memcpy(&(shared_segment->data),&buf,sizeof(midi_byte));
+				kill(serverpid, SIGUSR1);
+				//printf("KILL %i\n", serverpid);
 			}
 		}
-		if(shared_segment->buffer_ready == 0) {
-			fprintf(stderr, "Buffer not ready, dropping value\n"); 
-			// Maybe we can found a cleaner way to do this. Keeping it warm until next data arrives
-			continue;
-		}
-		memcpy(&(shared_segment->data),&buf,sizeof(midi_byte));
-		shared_segment->buffer_ready = 0;
-		kill(serverpid, SIGUSR1);
-		//printf("KILL %i\n", serverpid);
+		fprintf(stderr, "Buffer not ready, dropping value\n"); 
+		// Maybe we can found a cleaner way to do this. Keeping it warm until next data arrives
+		continue;
 	}
 	end();
 	return 0;

@@ -44,7 +44,8 @@ void sighandler(int signum) {
 				ret=pthread_mutex_unlock(&mutex_stack);
 				if(ret) fprintf(stderr, "pthread_mutex_unlock(): %s (%i)\n", strerror(ret), ret);
 //				printf("unlocked....\n");
-				shared_segment->buffer_ready = 1;
+				ret=pthread_mutex_unlock(&shared_segment->buffer_ready);
+				if(ret) fprintf(stderr, "pthread_mutex_lock(): %s (%i)\n", strerror(ret), ret);
 				//fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
 			}
 			break;
@@ -144,7 +145,7 @@ int main(void) {
 		end();
 	}
 
-	shared_segment->buffer_ready = 1;
+	pthread_mutex_init(&shared_segment->buffer_ready, NULL);
 
 	midi_byte mb;
 	while(must_exit == 0) {

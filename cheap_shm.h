@@ -5,11 +5,12 @@
 #define SHM_KEY 0xDEADBEEF
 
 #include <stdint.h>
+#include <pthread.h>
 #include "cheap_midi.h"
 
 typedef struct _shm_struct {
         midi_byte data;
-        volatile uint8_t buffer_ready;
+        pthread_mutex_t buffer_ready;
 } shm_struct;
 
 void *create_ssegment(void);
