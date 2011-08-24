@@ -6,7 +6,7 @@
 
 typedef struct _midi_byte_buffer {
 	midi_byte data[MIDI_EVENTS_BUFFER_SIZE];
-	uint8_t free;
+	uint8_t fill;
 	uint8_t read_idx;
 	uint8_t write_idx;
 } midi_byte_buffer;
