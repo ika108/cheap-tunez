@@ -33,6 +33,7 @@ void sighandler(int signum) {
 				printf("Stacking value... 0x%x\n",shared_segment->data.undecoded);
 				stack_value(shared_segment->data);
 				shared_segment->buffer_ready = 1;
+				fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
 			}
 			break;
 	}
@@ -40,10 +41,10 @@ void sighandler(int signum) {
 
 // Ring buffer stack function
 void stack_value(midi_byte value){
-	printf("Calling stack_value(0x%x)\n",value.undecoded);
+	// printf("Calling stack_value(0x%x)\n",value.undecoded);
 	if(byte_buffer.free != 0){
 		byte_buffer.data[byte_buffer.write_idx] = value;
-		if( byte_buffer.write_idx == ( MIDI_EVENTS_BUFFER_SIZE - 1 ) ) {
+		if( byte_buffer.write_idx == MIDI_EVENTS_BUFFER_SIZE ) {
 			byte_buffer.write_idx = 0;
 		} else {
 			byte_buffer.write_idx++;
@@ -52,17 +53,19 @@ void stack_value(midi_byte value){
 	} else {
 		printf("Buffer overrun. Discarding : 0x%x\n",value.undecoded);
 	}
+	fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
+
 	return;
 }
 
 // Ring buffer unstack function
 midi_byte unstack_value(void){
-	printf("Calling unstack_value()\n");
+	// printf("Calling unstack_value()\n");
 	midi_byte value;
 	value.undecoded = 0x00;
 	if(byte_buffer.free != MIDI_EVENTS_BUFFER_SIZE){
 		value = byte_buffer.data[byte_buffer.read_idx];
-		if( byte_buffer.read_idx == ( MIDI_EVENTS_BUFFER_SIZE - 1 ) ) {
+		if( byte_buffer.read_idx == MIDI_EVENTS_BUFFER_SIZE ) {
 			byte_buffer.read_idx = 0;
 		} else {
 			byte_buffer.read_idx++;
@@ -70,14 +73,18 @@ midi_byte unstack_value(void){
 		byte_buffer.free++;
 	} else {
 		printf("Buffer underrun.\n");
+		fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
+
 		return(value);
 	}
+	fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
+
 	return(value);
 }
 
 void buffer_init(void){
 	printf("Calling buffer_init()\n");
-	byte_buffer.free = MIDI_EVENTS_BUFFER_SIZE - 1;
+	byte_buffer.free = MIDI_EVENTS_BUFFER_SIZE;
 	byte_buffer.read_idx = 0;
 	byte_buffer.write_idx = 0;
 	return;
@@ -125,9 +132,13 @@ int main(void) {
 	while(must_exit == 0){
 		if(byte_buffer.free == 0){
 			printf("Unstacking values...\n");
+			fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
+
 			midi_byte mb;
 			while (byte_buffer.free < MIDI_EVENTS_BUFFER_SIZE) {
 				mb = unstack_value();
+				fprintf(stderr,"Buffer debug : [wr_idx,read_idx,free,max] [%i,%i,%i,%i]\n", byte_buffer.write_idx,byte_buffer.read_idx,byte_buffer.free,MIDI_EVENTS_BUFFER_SIZE);
+
 				printf("Value : 0x%x (%c)\n",mb.undecoded, mb.undecoded);
 			}
 			printf("End of stack\n");
