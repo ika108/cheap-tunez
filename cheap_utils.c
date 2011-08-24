@@ -41,6 +41,9 @@ int find_pid_by_name(const char *name) {
 				continue; // Skip the entry
 			}
 			buf[nbread] = '\0'; // Add a carriage return
+			if(nbread>10 && strncmp(buf+strlen(buf)-10, " (deleted)", 10)==0) {
+				buf[strlen(buf)-10]='\0';
+			}
 			if(strlen(buf) > strlen(name)) { 
 				if(strcmp(buf + strlen(buf) - strlen(name), name) == 0) { // Last check to verify if the exec file correspond to the queried name
 					pid = atoi(de->d_name); // Store pid
