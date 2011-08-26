@@ -1,0 +1,2 @@
+This is the specific x86_linux branch. 
+Sometimes from here, we will merge master and x86_linux (obviously when auto-tools integration will be complete)
