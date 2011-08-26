@@ -1,5 +1,3 @@
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <pthread.h>
@@ -10,14 +8,12 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include "cheap_midi.h"
-#include "cheap_shm.h"
-#include "cheap-tunez.h"
+#include "libs/cheap_midi.h"
+#include "libs/cheap_shm.h"
+#include "main.h"
 
 volatile midi_byte_buffer byte_buffer;
-shm_struct *shared_segment = NULL;
 int must_exit = 0;
-int shmid = 0;
 
 static pthread_mutex_t mutex_stack = PTHREAD_MUTEX_INITIALIZER;
 
@@ -168,6 +164,8 @@ int main(void) {
 	}
 	return(0);
 }
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
